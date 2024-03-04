@@ -44,6 +44,22 @@ class MateriaController {
   }
 }
 
+
+  // Método para eliminar una materia existente
+  static async eliminar(req, res) {
+    const { id } = req.params;
+    const sql = "DELETE FROM materias WHERE ID = ?";
+    try {
+      await dbQuery(sql, [id]);
+      res.json({ mensaje: "Materia eliminada con éxito" });
+    } catch (error) {
+      console.error("Error al eliminar materia:", error);
+      res.status(500).json({ error: "Error al eliminar materia" });
+    }
+  }
+}
+
+
 // Función de utilidad para ejecutar consultas SQL
 function dbQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
