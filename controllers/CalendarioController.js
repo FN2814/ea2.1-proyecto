@@ -98,13 +98,19 @@ class CalendarioController {
 
       // Consultar las actividades programadas en el rango de fechas
       const actividades = await dbQuery(
-        `SELECT * FROM Eventos WHERE Fecha BETWEEN ? AND ?`,
+        `SELECT e.ID, e.Nombre AS NombreEvento, e.Fecha, m.Nombre AS NombreMateria, p.Nombre AS NombreProfesor, s.Nombre AS NombreSeccion
+        FROM Eventos e
+        LEFT JOIN Materias m ON e.ID_Materia = m.ID
+        LEFT JOIN Profesores p ON m.ID_Profesor = p.ID
+        LEFT JOIN Secciones s ON m.ID_Seccion = s.ID
+        WHERE Fecha BETWEEN ? AND ?`,
         [inicioSemana, finSemana]
       );
 
-      // Formatear las fechas de las actividades con el nombre del día de la semana (en español)
+      // Formatear los resultados y devolverlos como respuesta
       const actividadesFormateadas = actividades.map((actividad) => ({
-        ...actividad,
+        ID: actividad.ID,
+        Nombre: actividad.NombreEvento,
         Fecha: {
           fecha: format(new Date(actividad.Fecha), "yyyy-MM-dd"),
           diaSemana:
@@ -112,9 +118,11 @@ class CalendarioController {
               format(new Date(actividad.Fecha), "EEEE", { locale: es })
             ], // Obtener el nombre del día de la semana en español
         },
+        Materia: actividad.NombreMateria,
+        Profesor: actividad.NombreProfesor,
+        Seccion: actividad.NombreSeccion,
       }));
 
-      // Formatear los resultados y devolverlos
       res.json({
         trimestre,
         semana,

@@ -1,117 +1,73 @@
-const ProfesorController = require("./ProfesorController");
-const MateriaController = require("./MateriaController");
+const mysql = require("mysql");
+const dbConfig = require("../dbConfig");
 
 class EventoController {
-  static eventos = [];
-  static ultimoId = 0;
-
-  static agregar(req, res) {
-    const { tipo, descripcion, fecha, materiaId } = req.body;
-    const evento = {
-      id: ++EventoController.ultimoId,
-      tipo,
-      descripcion,
-      fecha,
-      materiaId,
-    };
-    EventoController.eventos.push(evento);
-    res.json({ mensaje: "Evento agregado con éxito", evento });
-  }
-
-  static listar(req, res) {
-    res.json(EventoController.eventos);
-  }
-
-  static editar(req, res) {
-    const { id } = req.params;
-    const { tipo, descripcion, fecha, materiaId } = req.body;
-    const evento = EventoController.eventos.find((e) => e.id == id);
-    if (evento) {
-      evento.tipo = tipo;
-      evento.descripcion = descripcion;
-      evento.fecha = fecha;
-      evento.materiaId = materiaId;
-      res.json({ mensaje: "Evento editado con éxito", evento });
-    } else {
-      res.status(404).send("Evento no encontrado");
+  // Método para agregar un nuevo evento
+  static async agregar(req, res) {
+    const { Nombre, Fecha, ID_Materia } = req.body;
+    const sql = "INSERT INTO eventos (Nombre, Fecha, ID_Materia) VALUES (?, ?, ?)";
+    try {
+      await dbQuery(sql, [Nombre, Fecha, ID_Materia]);
+      res.json({ mensaje: "Evento agregado con éxito" });
+    } catch (error) {
+      console.error("Error al agregar evento:", error);
+      res.status(500).json({ error: "Error al agregar evento" });
     }
   }
 
-  static eliminar(req, res) {
-    const { id } = req.params;
-    const index = EventoController.eventos.findIndex((e) => e.id == id);
-    if (index !== -1) {
-      EventoController.eventos.splice(index, 1);
-      res.send("Evento eliminado con éxito");
-    } else {
-      res.status(404).send("Evento no encontrado");
+  // Método para obtener todos los eventos
+  static async listar(req, res) {
+    const sql = "SELECT * FROM eventos";
+    try {
+      const eventos = await dbQuery(sql);
+      res.json(eventos);
+    } catch (error) {
+      console.error("Error al obtener eventos:", error);
+      res.status(500).json({ error: "Error al obtener eventos" });
     }
   }
 
-  static eventosPorSemana(req, res) {
-    const { materiaId, fechaInicio } = req.params;
-    const fechaInicioDate = new Date(fechaInicio);
-    const fechaFinDate = new Date(fechaInicioDate);
-    fechaFinDate.setDate(fechaFinDate.getDate() + 7);
-
-    const eventosFiltrados = EventoController.eventos.filter((evento) => {
-      const fechaEvento = new Date(evento.fecha);
-      return (
-        evento.materiaId == materiaId &&
-        fechaEvento >= fechaInicioDate &&
-        fechaEvento < fechaFinDate
-      );
-    });
-
-    const materia = MateriaController.materias.find((m) => m.id == materiaId);
-
-    const nombreMateria = materia ? materia.nombre : "Materia no encontrada";
-
-    res.render("eventosPorSemana", {
-      eventos: eventosFiltrados,
-      nombreMateria,
-    });
+  // Método para editar un evento existente
+  static async editar(req, res) {
+    const { id } = req.params;
+    const { Nombre, Fecha, ID_Materia } = req.body;
+    const sql = "UPDATE eventos SET Nombre = ?, Fecha = ?, ID_Materia = ? WHERE ID = ?";
+    try {
+      await dbQuery(sql, [Nombre, Fecha, ID_Materia, id]);
+      res.json({ mensaje: "Evento editado con éxito" });
+    } catch (error) {
+      console.error("Error al editar evento:", error);
+      res.status(500).json({ error: "Error al editar evento" });
+    }
   }
 
-  static proximosEventos(req, res) {
-    const hoy = new Date();
-    const dosSemanasMas = new Date();
-    dosSemanasMas.setDate(hoy.getDate() + 14);
-    const eventosProximos = EventoController.eventos.filter((evento) => {
-      const fechaEvento = new Date(evento.fecha);
-      return fechaEvento >= hoy && fechaEvento <= dosSemanasMas;
-    });
-
-    res.json(eventosProximos);
+  // Método para eliminar un evento existente
+  static async eliminar(req, res) {
+    const { id } = req.params;
+    const sql = "DELETE FROM eventos WHERE ID = ?";
+    try {
+      await dbQuery(sql, [id]);
+      res.json({ mensaje: "Evento eliminado con éxito" });
+    } catch (error) {
+      console.error("Error al eliminar evento:", error);
+      res.status(500).json({ error: "Error al eliminar evento" });
+    }
   }
+}
 
-  static eventosProximosPorProfesor(req, res) {
-    const { fechaInicio } = req.params;
-    const fechaBase = new Date(fechaInicio);
-    const fechaLimite = new Date(fechaBase);
-    fechaLimite.setDate(fechaBase.getDate() + 14);
-
-    const eventosProximos = EventoController.eventos.filter((evento) => {
-      const fechaEvento = new Date(evento.fecha);
-      return fechaEvento >= fechaBase && fechaEvento < fechaLimite;
+// Función de utilidad para ejecutar consultas SQL
+function dbQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    const connection = mysql.createConnection(dbConfig);
+    connection.query(sql, params, (error, results) => {
+      connection.end();
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(results);
     });
-
-    const eventosConMateria = eventosProximos.map((evento) => ({
-      ...evento,
-      materia: MateriaController.materias.find((m) => m.id == evento.materiaId),
-    }));
-
-    const eventosPorProfesor = ProfesorController.profesores
-      .map((profesor) => {
-        const eventosDelProfesor = eventosConMateria.filter((evento) =>
-          profesor.materias.includes(evento.materia.id)
-        );
-        return { profesor: profesor.nombre, eventos: eventosDelProfesor };
-      })
-      .filter((profesor) => profesor.eventos.length > 0);
-
-    res.json(eventosPorProfesor);
-  }
+  });
 }
 
 module.exports = EventoController;
