@@ -1,6 +1,22 @@
 const mysql = require("mysql");
 const dbConfig = require("../dbConfig");
 
+class MateriaController {
+  // Método para agregar una nueva materia
+  static async agregar(req, res) {
+    const { Nombre, ID_Profesor, ID_Seccion } = req.body;
+    console.log(req.body); // Depurar entrada
+    const sql = "INSERT INTO materias (Nombre, ID_Profesor, ID_Seccion) VALUES (?, ?, ?)";
+    try {
+      await dbQuery(sql, [Nombre, ID_Profesor, ID_Seccion]);
+      res.json({ mensaje: "Materia agregada con éxito" });
+    } catch (error) {
+      console.error("Error al agregar materia:", error);
+      res.status(500).json({ error: "Error al agregar materia" });
+    }
+  }
+
+
  // Método para obtener todas las materias
  static async listar(req, res) {
   const sql = "SELECT * FROM materias";
